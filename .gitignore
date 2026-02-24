@@ -8,6 +8,15 @@ skills/**/.runtime/
 
 # Manual pipeline outputs
 manual_jobs/
+skills/url-app-manual-pipeline/references/%OUTDIR%/
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.xdv
 
 # OS/editor
 .DS_Store
