@@ -1,0 +1,4 @@
+interface:
+  display_name: "URL Manual Pipeline"
+  short_description: "Generate manual from URL with screenshots, LaTeX, and DOCX sync."
+  default_prompt: "Create screenshots from a URL, build LaTeX user manual, and sync content into DOCX without direct conversion."

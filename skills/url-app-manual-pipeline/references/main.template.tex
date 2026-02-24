@@ -1,0 +1,163 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage[hypertexnames=false]{hyperref}
+\usepackage{xcolor}
+\usepackage{float}
+\geometry{margin=2.2cm}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\newcommand{\manualversion}{0.1}
+\newcommand{\manualdate}{__MANUAL_DATE__}
+\newcommand{\apptarget}{__APP_TARGET__}
+\newcommand{\testurl}{\url{__TEST_URL__}}
+
+\newcommand{\screenshotbox}[3]{
+  \begin{figure}[H]
+    \centering
+    \IfFileExists{#1}{
+      \includegraphics[width=0.95\linewidth]{#1}
+    }{
+      \fbox{
+        \begin{minipage}[c][7cm][c]{0.9\linewidth}
+          \centering
+          \textbf{Screenshot Placeholder}\\[6pt]
+          \texttt{#1}\\[6pt]
+          #3
+        \end{minipage}
+      }
+    }
+    \caption{#2}
+  \end{figure}
+}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  {\LARGE User Manual \par}
+  \vspace{1cm}
+  {\Large \apptarget \par}
+  \vspace{1.2cm}
+  {\large Version: \manualversion \par}
+  \vspace{0.4cm}
+  {\large Date: \manualdate \par}
+  \vspace{1.2cm}
+  {\large Target URL: \testurl \par}
+  \vfill
+  {\normalsize This draft is generated from live page capture and generic UI mapping.}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Scope}
+This manual covers visible primary controls on \texttt{__HOST__} (desktop):
+\begin{itemize}
+  \item Top header/navigation controls
+  \item Side navigation (if present)
+  \item Main content card/list entry interactions
+\end{itemize}
+
+\section{Prerequisites}
+\begin{itemize}
+  \item Browser can access \url{__TEST_URL__}
+  \item Recommended viewport width: at least 1280 px
+  \item UI may differ by locale, login state, A/B experiments, and permissions
+\end{itemize}
+
+\section{Home Page Overview}
+\screenshotbox{images/home-overview.png}{Application home page overview}{Mark main regions: header, side navigation, content area}
+
+\section{Links and Buttons Mapping}
+\subsection{Top Navigation}
+\begin{longtable}{p{0.22\linewidth} p{0.22\linewidth} p{0.48\linewidth}}
+\toprule
+Control & Type & Function \\
+\midrule
+\endhead
+Main Logo / Home Link & Link & Returns to the landing page. \\
+Global Search Input (if present) & Input field & Accepts query text for global search. \\
+Search Submit Control (if present) & Button & Executes search using entered keywords. \\
+Profile / Account Entry (if present) & Link/Button & Opens login, account, or user menu actions. \\
+Primary Utility Buttons & Button & Opens contextual actions such as notifications, settings, or creation flow. \\
+\bottomrule
+\end{longtable}
+
+\screenshotbox{images/top-nav.png}{Top navigation controls}{Annotate controls listed in the table}
+
+\subsection{Left Navigation (Common Signed-out Items)}
+\begin{longtable}{p{0.22\linewidth} p{0.22\linewidth} p{0.48\linewidth}}
+\toprule
+Item & Type & Function \\
+\midrule
+\endhead
+Home & Link & Navigates to default dashboard/feed/home view. \\
+Discover / Explore & Link & Opens browsing categories or recommendations. \\
+Saved / Library & Link & Opens saved content or collections. \\
+History / Recent & Link & Shows previously visited items when available. \\
+Settings / Help & Link & Opens support, preferences, or system settings. \\
+\bottomrule
+\end{longtable}
+
+\screenshotbox{images/left-nav.png}{Left navigation panel}{Annotate major navigation entries}
+
+\subsection{Home Feed Video Card}
+\begin{longtable}{p{0.22\linewidth} p{0.22\linewidth} p{0.48\linewidth}}
+\toprule
+Area & Type & Function \\
+\midrule
+\endhead
+Preview / Thumbnail Area & Link & Opens detail page for the selected item. \\
+Title Text & Link & Opens the same detail page. \\
+Metadata Line (author/category/date) & Link/Text & Provides context and may navigate to related listing pages. \\
+More Options Control & Button & Opens row-level actions (save, hide, report, etc., site dependent). \\
+\bottomrule
+\end{longtable}
+
+\screenshotbox{images/video-card.png}{Representative content card}{Annotate clickable areas}
+
+\section{Example Task Flows}
+\subsection{Flow A: Search for a Video}
+\begin{enumerate}
+  \item Enter keywords in the search input (example: \texttt{__SEARCH_QUERY__}).
+  \item Trigger the search action (button click or Enter).
+  \item Review the resulting list/grid page.
+\end{enumerate}
+\screenshotbox{images/flow-search-step1.png}{Flow A-1: Enter search keywords}{Capture search keywords entered in the UI}
+\screenshotbox{images/flow-search-step2.png}{Flow A-2: Search results page}{Capture post-search listing state}
+
+\subsection{Flow B: Open a Video Watch Page}
+\begin{enumerate}
+  \item Find any content card or list row on the home page.
+  \item Click its preview or title.
+  \item Confirm the detail page is loaded.
+\end{enumerate}
+\screenshotbox{images/flow-open-video-step1.png}{Flow B-1: Select a content card}{Mark which card/row is selected}
+\screenshotbox{images/flow-open-video-step2.png}{Flow B-2: Detail page loaded}{Mark key detail page regions}
+
+\section{Maintenance Notes}
+\begin{itemize}
+  \item This manual is generated from live DOM capture and can drift as UI changes.
+  \item Re-generate screenshots after major UI updates.
+  \item Validate captions/table labels for domain-specific wording before release.
+\end{itemize}
+
+\section{Build}
+Run this command in the same directory:
+\begin{verbatim}
+latexmk -pdf main.tex
+\end{verbatim}
+Output: \texttt{main.pdf}
+
+\end{document}

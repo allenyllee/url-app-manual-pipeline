@@ -1,0 +1,164 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage[hypertexnames=false]{hyperref}
+\usepackage{xcolor}
+\usepackage{float}
+\geometry{margin=2.2cm}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\newcommand{\manualversion}{0.1}
+\newcommand{\manualdate}{2026-02-24}
+\newcommand{\apptarget}{YouTube Web Home Page (Desktop)}
+\newcommand{\testurl}{\url{https://www.youtube.com/}}
+
+\newcommand{\screenshotbox}[3]{
+  \begin{figure}[H]
+    \centering
+    \IfFileExists{#1}{
+      \includegraphics[width=0.95\linewidth]{#1}
+    }{
+      \fbox{
+        \begin{minipage}[c][7cm][c]{0.9\linewidth}
+          \centering
+          \textbf{Screenshot Placeholder}\\[6pt]
+          \texttt{#1}\\[6pt]
+          #3
+        \end{minipage}
+      }
+    }
+    \caption{#2}
+  \end{figure}
+}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  {\LARGE User Manual \par}
+  \vspace{1cm}
+  {\Large \apptarget \par}
+  \vspace{1.2cm}
+  {\large Version: \manualversion \par}
+  \vspace{0.4cm}
+  {\large Date: \manualdate \par}
+  \vspace{1.2cm}
+  {\large Target URL: \testurl \par}
+  \vfill
+  {\normalsize Note: This draft covers the main home page controls and screenshot slots.}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Scope}
+This manual currently covers the visible primary controls on the YouTube home page (desktop, signed-out state), including:
+\begin{itemize}
+  \item Top navigation bar (logo, search, voice search, sign in)
+  \item Main links in the left navigation panel
+  \item Clickable areas in video cards on the home feed
+\end{itemize}
+
+\section{Prerequisites}
+\begin{itemize}
+  \item Browser can access \texttt{https://www.youtube.com/}
+  \item Recommended viewport width: at least 1280 px
+  \item UI may differ by locale, language, and login status
+\end{itemize}
+
+\section{Home Page Overview}
+\screenshotbox{images/home-overview.png}{YouTube home page overview}{Suggested labels: A menu, B search, C sign in, D left nav, E video feed}
+
+\section{Links and Buttons Mapping}
+\subsection{Top Navigation}
+\begin{longtable}{p{0.22\linewidth} p{0.22\linewidth} p{0.48\linewidth}}
+\toprule
+Control & Type & Function \\
+\midrule
+\endhead
+Hamburger Menu (top-left) & Button & Expands or collapses the left navigation panel. \\
+YouTube Logo & Link & Returns to the home page (\texttt{/}). \\
+Search Input & Input field & Accepts keywords for searching videos, channels, and playlists. \\
+Search (Magnifier) & Button & Submits the search query and opens results page. \\
+Voice Search (Mic) & Button & Starts voice input search (browser microphone permission required). \\
+Sign In & Link/Button & Opens Google account sign-in flow. \\
+\bottomrule
+\end{longtable}
+
+\screenshotbox{images/top-nav.png}{Top navigation controls}{Annotate items 1--6 to match the table}
+
+\subsection{Left Navigation (Common Signed-out Items)}
+\begin{longtable}{p{0.22\linewidth} p{0.22\linewidth} p{0.48\linewidth}}
+\toprule
+Item & Type & Function \\
+\midrule
+\endhead
+Home & Link & Loads the home recommendation feed. \\
+Shorts & Link & Opens the Shorts feed. \\
+Subscriptions (if shown) & Link & Shows latest videos from subscribed channels (usually after sign in). \\
+You & Link & Opens account-related area (history, playlists, etc., usually after sign in). \\
+History (if shown) & Link & Displays watch history (usually after sign in). \\
+\bottomrule
+\end{longtable}
+
+\screenshotbox{images/left-nav.png}{Left navigation panel}{Annotate the main clickable items}
+
+\subsection{Home Feed Video Card}
+\begin{longtable}{p{0.22\linewidth} p{0.22\linewidth} p{0.48\linewidth}}
+\toprule
+Area & Type & Function \\
+\midrule
+\endhead
+Thumbnail & Link & Opens the video watch page. \\
+Video Title & Link & Opens the video watch page. \\
+Channel Name & Link & Opens the channel page. \\
+More Options (three dots) & Button & Opens card actions menu (not interested, save, etc.; varies by sign-in state). \\
+\bottomrule
+\end{longtable}
+
+\screenshotbox{images/video-card.png}{Video card interactive areas}{Annotate thumbnail, title, channel, and more menu}
+
+\section{Example Task Flows}
+\subsection{Flow A: Search for a Video}
+\begin{enumerate}
+  \item Enter keywords in the search input.
+  \item Click the magnifier button.
+  \item Review the search results page.
+\end{enumerate}
+\screenshotbox{images/flow-search-step1.png}{Flow A-1: Enter search keywords}{Capture the query entered in top search input}
+\screenshotbox{images/flow-search-step2.png}{Flow A-2: Search results page}{Capture results list with query visible}
+
+\subsection{Flow B: Open a Video Watch Page}
+\begin{enumerate}
+  \item Find any video card on the home feed.
+  \item Click its thumbnail or title.
+  \item Confirm the watch page and player are loaded.
+\end{enumerate}
+\screenshotbox{images/flow-open-video-step1.png}{Flow B-1: Select a video card}{Mark which card is clicked}
+\screenshotbox{images/flow-open-video-step2.png}{Flow B-2: Watch page loaded}{Mark the player and video title area}
+
+\section{Maintenance Notes}
+\begin{itemize}
+  \item YouTube UI changes frequently; validate text and screenshots periodically.
+  \item Locale/language/login state can change labels and available controls.
+  \item Next expansion can include signed-in features (subscriptions, playlists, upload flow).
+\end{itemize}
+
+\section{Build}
+Run this command in the same directory:
+\begin{verbatim}
+latexmk -pdf main.tex
+\end{verbatim}
+Output: \texttt{main.pdf}
+
+\end{document}

@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Virtual environments
+.venv/
+skills/**/.runtime/
+
+# Pipeline generated outputs
+manual_jobs/
+output/
+*.pdf
+_archive/
+images/
+manual_styled_v3.docx
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temporary and archives
+*.tmp
+*.log
