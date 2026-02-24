@@ -1,6 +1,24 @@
 \documentclass[12pt,a4paper]{article}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+\else
+  \usepackage{fontspec}
+  \ifXeTeX
+    \usepackage{xeCJK}
+    \setmainfont{TeX Gyre Termes}
+    \IfFontExistsTF{Noto Serif CJK TC}{
+      \setCJKmainfont{Noto Serif CJK TC}
+    }{
+      \IfFontExistsTF{Noto Serif CJK SC}{
+        \setCJKmainfont{Noto Serif CJK SC}
+      }{
+        \setCJKmainfont{FandolSong-Regular}
+      }
+    }
+  \fi
+\fi
 \usepackage{geometry}
 \usepackage{graphicx}
 \usepackage{array}

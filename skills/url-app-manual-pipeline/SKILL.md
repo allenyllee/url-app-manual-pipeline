@@ -46,6 +46,8 @@ Optional:
 - dynamic max screenshots: `MANUAL_DYNAMIC_MAX_SHOTS=12`
 - dynamic minimum required scenes: `MANUAL_DYNAMIC_MIN_SCENES=1`
 - dynamic PoC output root: `MANUAL_POC_DIR=<job_dir>/poc_dynamic`
+- LaTeX engine: `MANUAL_LATEX_ENGINE=auto|pdflatex|xelatex` (default `auto`)
+  - `auto` behavior: dynamic + `MANUAL_LOCALE=zh-TW` uses `xelatex`, otherwise `pdflatex`
 - set search-flow keyword: `MANUAL_SEARCH_QUERY="your keyword"`
 - auto-delete empty folders in `<job_dir>` on exit (default on): `MANUAL_CLEAN_EMPTY_DIRS=1`
 - legacy fallback venv `/mnt/DATA/test/.venv` is blocked by default:

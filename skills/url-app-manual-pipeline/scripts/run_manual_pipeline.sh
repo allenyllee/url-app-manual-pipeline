@@ -25,6 +25,7 @@ MANUAL_LLM_MODE="${MANUAL_LLM_MODE:-rewrite}"
 MANUAL_DYNAMIC_MAX_SHOTS="${MANUAL_DYNAMIC_MAX_SHOTS:-12}"
 MANUAL_DYNAMIC_MIN_SCENES="${MANUAL_DYNAMIC_MIN_SCENES:-1}"
 MANUAL_POC_DIR="${MANUAL_POC_DIR:-$JOB_DIR/poc_dynamic}"
+MANUAL_LATEX_ENGINE="${MANUAL_LATEX_ENGINE:-auto}"
 
 SOURCE_DIR="$JOB_DIR/source"
 OUTPUT_DIR="$JOB_DIR/output"
@@ -168,6 +169,57 @@ require_python_runtime_deps() {
   fi
 }
 
+resolve_latex_engine() {
+  local mode="$1"
+  local locale="$2"
+  case "$MANUAL_LATEX_ENGINE" in
+    auto)
+      if [[ "$mode" == "dynamic" && "$locale" == "zh-TW" ]]; then
+        echo "xelatex"
+      else
+        echo "pdflatex"
+      fi
+      ;;
+    pdflatex|xelatex)
+      echo "$MANUAL_LATEX_ENGINE"
+      ;;
+    *)
+      echo "Invalid MANUAL_LATEX_ENGINE: $MANUAL_LATEX_ENGINE (expected: auto|pdflatex|xelatex)" >&2
+      exit 1
+      ;;
+  esac
+}
+
+build_latex_pdf() {
+  local mode="$1"
+  local locale="$2"
+  local src_dir="$3"
+  local tex_file="$4"
+  local out_pdf="$5"
+  local engine
+  engine="$(resolve_latex_engine "$mode" "$locale")"
+
+  if [[ "$engine" == "xelatex" ]]; then
+    if ! command -v xelatex >/dev/null 2>&1; then
+      echo "XeLaTeX is required but not installed (engine=$engine)." >&2
+      echo "Install xelatex/CJK packages, or set MANUAL_LATEX_ENGINE=pdflatex." >&2
+      exit 1
+    fi
+    (
+      cd "$src_dir"
+      latexmk -xelatex -interaction=nonstopmode "$tex_file"
+    )
+  else
+    (
+      cd "$src_dir"
+      latexmk -pdf -interaction=nonstopmode "$tex_file"
+    )
+  fi
+
+  local built_pdf="${tex_file%.tex}.pdf"
+  cp "$src_dir/$built_pdf" "$out_pdf"
+}
+
 verify_required_screenshots() {
   local required=(
     "home-overview.png"
@@ -246,11 +298,7 @@ if [[ "$MANUAL_TEMPLATE_MODE" == "dynamic" ]]; then
     --out-tex "$POC_SOURCE_DIR/main.dynamic.tex" \
     --out-md "$POC_SOURCE_DIR/manual_word_v3.dynamic.md"
 
-  (
-    cd "$POC_SOURCE_DIR"
-    latexmk -pdf -interaction=nonstopmode main.dynamic.tex
-  )
-  cp "$POC_SOURCE_DIR/main.dynamic.pdf" "$POC_OUTPUT_DIR/manual.dynamic.pdf"
+  build_latex_pdf "dynamic" "$MANUAL_LOCALE" "$POC_SOURCE_DIR" "main.dynamic.tex" "$POC_OUTPUT_DIR/manual.dynamic.pdf"
 
   pandoc "$POC_SOURCE_DIR/manual_word_v3.dynamic.md" -o "$POC_SOURCE_DIR/manual_styled_dynamic.docx" --toc --number-sections
 
@@ -293,11 +341,7 @@ fi
   --manifest-out "$SOURCE_DIR/capture_manifest.json"
 verify_required_screenshots
 
-(
-  cd "$SOURCE_DIR"
-  latexmk -pdf -interaction=nonstopmode main.tex
-)
-cp "$SOURCE_DIR/main.pdf" "$OUTPUT_DIR/manual.pdf"
+build_latex_pdf "static" "$MANUAL_LOCALE" "$SOURCE_DIR" "main.tex" "$OUTPUT_DIR/manual.pdf"
 
 pandoc "$SOURCE_DIR/manual_word_v3.md" -o "$SOURCE_DIR/manual_styled_v3.docx" --toc --number-sections
 
