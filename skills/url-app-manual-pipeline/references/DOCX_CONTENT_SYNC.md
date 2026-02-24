@@ -54,3 +54,20 @@ python3 scripts/sync_latex_to_docx.py --tex main.tex --docx manual_styled_v3.doc
 
 - Keep section/subsection names recognizable in DOCX (e.g., `Top Navigation`), or that block may be skipped.
 - If a block cannot be matched, the script leaves the original LaTeX block unchanged.
+
+## Dynamic PoC sync (ID-based)
+
+When working with `manual_spec.json` + dynamic templates, sync by block IDs instead of fixed English headings:
+
+```bash
+python3 scripts/sync_latex_to_docx.py \
+  --tex main.dynamic.tex \
+  --docx manual_styled_dynamic.docx \
+  --spec manual_spec.json \
+  --out manual.dynamic.docx
+```
+
+Rules:
+- Markdown carries `MANUAL_BLOCK:<block_id>` token paragraphs.
+- Sync script replaces those blocks by ID (`paragraph|bullet_list|numbered_list|table`).
+- Figure blocks are left for image sync phase.

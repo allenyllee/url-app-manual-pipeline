@@ -17,11 +17,22 @@ from __future__ import annotations
 
 import argparse
 import copy
+import json
 import re
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
+from typing import Any
+
+try:
+    from docx import Document
+    from docx.oxml import OxmlElement
+    from docx.text.paragraph import Paragraph
+except Exception:  # pragma: no cover - optional dependency for dynamic mode
+    Document = None
+    OxmlElement = None
+    Paragraph = Any
 
 NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 NS_XML = "http://www.w3.org/XML/1998/namespace"
@@ -36,6 +47,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Sync LaTeX content into DOCX template")
     p.add_argument("--tex", type=Path, default=Path("main.tex"))
     p.add_argument("--docx", type=Path, default=Path("manual_styled_v3.docx"))
+    p.add_argument("--spec", type=Path, default=None, help="Dynamic manual spec (enables token-based block sync)")
     p.add_argument("--out", type=Path, default=None, help="Output docx (default: overwrite --docx)")
     p.add_argument("--dry-run", action="store_true")
     return p.parse_args()
@@ -846,8 +858,140 @@ def write_docx_with_updated_document_xml(
     tmp_path.unlink(missing_ok=True)
 
 
-def main() -> int:
-    args = parse_args()
+def remove_docx_paragraph(paragraph: Paragraph) -> None:
+    p = paragraph._element
+    parent = p.getparent()
+    if parent is not None:
+        parent.remove(p)
+
+
+def insert_paragraph_after_docx(paragraph: Paragraph, text: str | None = None, style: str | None = None) -> Paragraph:
+    new_p = OxmlElement("w:p")
+    paragraph._p.addnext(new_p)
+    p = Paragraph(new_p, paragraph._parent)
+    if style:
+        try:
+            p.style = style
+        except Exception:
+            pass
+    if text is not None:
+        p.add_run(text)
+    return p
+
+
+def sync_dynamic_from_spec(args: argparse.Namespace) -> int:
+    if args.spec is None:
+        return 1
+    if Document is None or OxmlElement is None:
+        raise SystemExit("python-docx is required for --spec dynamic sync mode")
+
+    spec = json.loads(args.spec.read_text(encoding="utf-8"))
+    block_map: dict[str, dict] = {}
+    for section in spec.get("sections", []):
+        for block in section.get("blocks", []):
+            bid = block.get("block_id")
+            if bid:
+                block_map[bid] = block
+
+    block_token_re = re.compile(r"(?:\[\[)?MANUAL_BLOCK:([A-Za-z0-9_.:-]+)(?:\]\])?")
+    fig_token_re = re.compile(r"(?:\[\[)?MANUAL_FIG:([A-Za-z0-9_.:-]+)(?:\]\])?")
+
+    doc = Document(str(args.docx))
+    changes = 0
+    skipped = 0
+
+    for p in list(doc.paragraphs):
+        text = (p.text or "").strip()
+        if fig_token_re.fullmatch(text):
+            continue
+        m = block_token_re.fullmatch(text)
+        if not m:
+            continue
+
+        block_id = m.group(1).strip()
+        block = block_map.get(block_id)
+        if not block:
+            p.text = ""
+            skipped += 1
+            changes += 1
+            continue
+
+        btype = block.get("type")
+        if btype == "paragraph":
+            p.text = block.get("text", "")
+            changes += 1
+            continue
+
+        if btype in ("bullet_list", "numbered_list"):
+            items = list(block.get("items", []))
+            if not items:
+                p.text = ""
+                changes += 1
+                continue
+            p.text = items[0]
+            try:
+                p.style = "List Bullet" if btype == "bullet_list" else "List Number"
+            except Exception:
+                pass
+            tail = p
+            for item in items[1:]:
+                tail = insert_paragraph_after_docx(
+                    tail,
+                    item,
+                    "List Bullet" if btype == "bullet_list" else "List Number",
+                )
+                changes += 1
+            changes += 1
+            continue
+
+        if btype == "table":
+            cols = list(block.get("columns", []))
+            rows = list(block.get("rows", []))
+            if not cols:
+                cols = ["Column 1", "Column 2", "Column 3"]
+            table = doc.add_table(rows=1, cols=len(cols))
+            for idx, c in enumerate(cols):
+                table.rows[0].cells[idx].text = str(c)
+            for row in rows:
+                r = table.add_row().cells
+                for idx, c in enumerate(cols):
+                    r[idx].text = str(row[idx] if idx < len(row) else "")
+            p._p.addnext(table._tbl)
+            remove_docx_paragraph(p)
+            changes += 1
+            continue
+
+        if btype == "figure":
+            # Figure image/caption placement is handled by sync_latex_images_to_docx.py.
+            p.text = ""
+            changes += 1
+            continue
+
+        p.text = ""
+        skipped += 1
+        changes += 1
+
+    # Cleanup unresolved block tokens to avoid leaking control markers.
+    for p in doc.paragraphs:
+        t = (p.text or "").strip()
+        if block_token_re.search(t):
+            p.text = ""
+            changes += 1
+
+    out_docx = args.out if args.out else args.docx
+    print(f"docx: {args.docx}")
+    print(f"spec: {args.spec}")
+    print(f"out: {out_docx}")
+    print(f"changes: {changes}")
+    print(f"skipped_blocks: {skipped}")
+
+    if not args.dry_run:
+        doc.save(str(out_docx))
+        print("updated docx")
+    return 0
+
+
+def legacy_main(args: argparse.Namespace) -> int:
     out_docx = args.out if args.out else args.docx
 
     lists, tables, enums, build_lines = parse_tex(args.tex)
@@ -896,6 +1040,13 @@ def main() -> int:
         print("updated docx")
 
     return 0
+
+
+def main() -> int:
+    args = parse_args()
+    if args.spec is not None:
+        return sync_dynamic_from_spec(args)
+    return legacy_main(args)
 
 
 if __name__ == "__main__":

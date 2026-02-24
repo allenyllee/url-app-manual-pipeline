@@ -34,3 +34,19 @@ python3 scripts/sync_docx_images.py manual_styled_v4.docx --outdir images --dry-
 ```bash
 latexmk -pdf main.tex
 ```
+
+## Dynamic PoC image sync (ID-based)
+
+For dynamic templates, image placement uses figure IDs from `manual_spec.json`:
+
+```bash
+python3 scripts/sync_latex_images_to_docx.py \
+  --tex main.dynamic.tex \
+  --docx manual.dynamic.docx \
+  --spec manual_spec.json
+```
+
+Rules:
+- Markdown carries `MANUAL_FIG:<figure_id>` token paragraphs.
+- Script inserts image + caption by matching `figure_id` in spec.
+- Matching is language-agnostic (no heading text dependency).

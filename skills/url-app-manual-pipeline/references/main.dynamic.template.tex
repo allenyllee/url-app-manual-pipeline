@@ -1,0 +1,66 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage[hypertexnames=false]{hyperref}
+\usepackage{xcolor}
+\usepackage{float}
+\geometry{margin=2.2cm}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\newcommand{\manualversion}{0.1-dynamic-poc}
+\newcommand{\manualdate}{__MANUAL_DATE__}
+\newcommand{\apptarget}{__APP_TARGET__}
+\newcommand{\testurl}{\url{__TEST_URL__}}
+
+\newcommand{\screenshotbox}[3]{
+  \begin{figure}[H]
+    \centering
+    \IfFileExists{#1}{
+      \includegraphics[width=0.95\linewidth]{#1}
+    }{
+      \fbox{
+        \begin{minipage}[c][7cm][c]{0.9\linewidth}
+          \centering
+          \textbf{Screenshot Placeholder}\\[6pt]
+          \texttt{#1}\\[6pt]
+          #3
+        \end{minipage}
+      }
+    }
+    \caption{#2}
+  \end{figure}
+}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  {\LARGE User Manual (Dynamic PoC) \par}
+  \vspace{1cm}
+  {\Large \apptarget \par}
+  \vspace{1.2cm}
+  {\large Version: \manualversion \par}
+  \vspace{0.4cm}
+  {\large Date: \manualdate \par}
+  \vspace{1.2cm}
+  {\large Target URL: \testurl \par}
+  \vfill
+  {\normalsize This draft is generated from dynamic manual spec and live capture.}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+__TEX_BODY__
+
+\end{document}

@@ -40,6 +40,12 @@ Optional:
   (uses `apt-get` / `dnf` / `brew`, requires sudo/admin)
 - render from URL templates (default): `MANUAL_USE_LOCAL_SOURCES=0`
 - reuse workspace `main.tex` + `manual_word_v3.md`: `MANUAL_USE_LOCAL_SOURCES=1`
+- template mode: `MANUAL_TEMPLATE_MODE=static|dynamic` (default `static`)
+- dynamic locale: `MANUAL_LOCALE=en|zh-TW` (default `en`)
+- dynamic rewrite mode: `MANUAL_LLM_MODE=off|rewrite` (default `rewrite`, heuristic rewrite fallback)
+- dynamic max screenshots: `MANUAL_DYNAMIC_MAX_SHOTS=12`
+- dynamic minimum required scenes: `MANUAL_DYNAMIC_MIN_SCENES=1`
+- dynamic PoC output root: `MANUAL_POC_DIR=<job_dir>/poc_dynamic`
 - set search-flow keyword: `MANUAL_SEARCH_QUERY="your keyword"`
 - auto-delete empty folders in `<job_dir>` on exit (default on): `MANUAL_CLEAN_EMPTY_DIRS=1`
 - legacy fallback venv `/mnt/DATA/test/.venv` is blocked by default:
@@ -55,6 +61,24 @@ Optional:
 - Final output: `<job_dir>/output/`
   - `manual.pdf`
   - `manual.docx`
+
+Dynamic PoC mode (`MANUAL_TEMPLATE_MODE=dynamic`) additionally writes:
+- Source: `<job_dir>/poc_dynamic/source/`
+  - `capture_manifest.json`
+  - `manual_spec.json`
+  - `main.dynamic.tex`
+  - `manual_word_v3.dynamic.md`
+  - `images/*.png`
+- Final output: `<job_dir>/poc_dynamic/output/`
+  - `manual.dynamic.pdf`
+  - `manual.dynamic.docx`
+
+Dynamic spec validation:
+
+```bash
+python3 skills/url-app-manual-pipeline/scripts/validate_manual_spec.py \
+  --spec <job_dir>/poc_dynamic/source/manual_spec.json
+```
 
 ## Non-Negotiable Rules
 

@@ -19,10 +19,21 @@ SEARCH_QUERY="${MANUAL_SEARCH_QUERY:-test}"
 CLEAN_EMPTY_DIRS="${MANUAL_CLEAN_EMPTY_DIRS:-1}"
 ALLOW_LEGACY_TEST_VENV="${MANUAL_ALLOW_LEGACY_TEST_VENV:-0}"
 
+MANUAL_TEMPLATE_MODE="${MANUAL_TEMPLATE_MODE:-static}"
+MANUAL_LOCALE="${MANUAL_LOCALE:-en}"
+MANUAL_LLM_MODE="${MANUAL_LLM_MODE:-rewrite}"
+MANUAL_DYNAMIC_MAX_SHOTS="${MANUAL_DYNAMIC_MAX_SHOTS:-12}"
+MANUAL_DYNAMIC_MIN_SCENES="${MANUAL_DYNAMIC_MIN_SCENES:-1}"
+MANUAL_POC_DIR="${MANUAL_POC_DIR:-$JOB_DIR/poc_dynamic}"
+
 SOURCE_DIR="$JOB_DIR/source"
 OUTPUT_DIR="$JOB_DIR/output"
 IMG_DIR="$SOURCE_DIR/images"
 PY_BIN="$VENV_DIR/bin/python"
+
+POC_SOURCE_DIR="$MANUAL_POC_DIR/source"
+POC_OUTPUT_DIR="$MANUAL_POC_DIR/output"
+POC_IMG_DIR="$POC_SOURCE_DIR/images"
 
 validate_venv_dir() {
   case "$VENV_DIR" in
@@ -58,11 +69,10 @@ cleanup_stale_empty_jobs() {
 
 trap cleanup_current_job_empty_dirs EXIT
 
-# Clean stale empty job folders from previous interrupted runs.
 cleanup_stale_empty_jobs
 validate_venv_dir
 
-mkdir -p "$SOURCE_DIR" "$OUTPUT_DIR" "$IMG_DIR"
+mkdir -p "$SOURCE_DIR" "$OUTPUT_DIR" "$IMG_DIR" "$POC_SOURCE_DIR" "$POC_OUTPUT_DIR" "$POC_IMG_DIR"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -131,8 +141,6 @@ bootstrap_python_env() {
     mkdir -p "$(dirname "$VENV_DIR")"
     python3 -m venv "$VENV_DIR"
   fi
-  # Avoid unconditional network access on every run.
-  # Only touch pip when runtime deps are actually missing.
   if ! "$PY_BIN" -c "import playwright, docx" >/dev/null 2>&1; then
     if ! "$PY_BIN" -m pip install --upgrade pip; then
       echo "Failed to bootstrap Python runtime: cannot upgrade pip." >&2
@@ -200,7 +208,70 @@ fi
 
 require_python_runtime_deps
 
-# 1) Create source files for version control
+if [[ "$MANUAL_TEMPLATE_MODE" == "dynamic" ]]; then
+  MANIFEST_PATH="$POC_SOURCE_DIR/capture_manifest.json"
+  RAW_SPEC="$POC_SOURCE_DIR/manual_spec.raw.json"
+  SPEC_PATH="$POC_SOURCE_DIR/manual_spec.json"
+
+  "$PY_BIN" "$SKILL_DIR/scripts/capture_manual_screens.py" \
+    --url "$URL" \
+    --outdir "$POC_IMG_DIR" \
+    --search-query "$SEARCH_QUERY" \
+    --mode dynamic \
+    --manifest-out "$MANIFEST_PATH" \
+    --max-shots "$MANUAL_DYNAMIC_MAX_SHOTS" \
+    --min-scenes "$MANUAL_DYNAMIC_MIN_SCENES"
+
+  "$PY_BIN" "$SKILL_DIR/scripts/build_manual_spec.py" \
+    --url "$URL" \
+    --manifest "$MANIFEST_PATH" \
+    --out "$RAW_SPEC" \
+    --locale "$MANUAL_LOCALE" \
+    --llm-mode "$MANUAL_LLM_MODE" \
+    --search-query "$SEARCH_QUERY"
+
+  "$PY_BIN" "$SKILL_DIR/scripts/merge_capture_manifest.py" \
+    --spec "$RAW_SPEC" \
+    --manifest "$MANIFEST_PATH" \
+    --images-root "$POC_IMG_DIR" \
+    --out "$SPEC_PATH"
+
+  "$PY_BIN" "$SKILL_DIR/scripts/validate_manual_spec.py" \
+    --spec "$SPEC_PATH"
+
+  "$PY_BIN" "$SKILL_DIR/scripts/render_from_spec.py" \
+    --spec "$SPEC_PATH" \
+    --tex-template "$SKILL_DIR/references/main.dynamic.template.tex" \
+    --md-template "$SKILL_DIR/references/manual_word.dynamic.template.md" \
+    --out-tex "$POC_SOURCE_DIR/main.dynamic.tex" \
+    --out-md "$POC_SOURCE_DIR/manual_word_v3.dynamic.md"
+
+  (
+    cd "$POC_SOURCE_DIR"
+    latexmk -pdf -interaction=nonstopmode main.dynamic.tex
+  )
+  cp "$POC_SOURCE_DIR/main.dynamic.pdf" "$POC_OUTPUT_DIR/manual.dynamic.pdf"
+
+  pandoc "$POC_SOURCE_DIR/manual_word_v3.dynamic.md" -o "$POC_SOURCE_DIR/manual_styled_dynamic.docx" --toc --number-sections
+
+  "$PY_BIN" "$SKILL_DIR/scripts/sync_latex_to_docx.py" \
+    --tex "$POC_SOURCE_DIR/main.dynamic.tex" \
+    --docx "$POC_SOURCE_DIR/manual_styled_dynamic.docx" \
+    --spec "$SPEC_PATH" \
+    --out "$POC_OUTPUT_DIR/manual.dynamic.docx"
+
+  "$PY_BIN" "$SKILL_DIR/scripts/sync_latex_images_to_docx.py" \
+    --tex "$POC_SOURCE_DIR/main.dynamic.tex" \
+    --docx "$POC_OUTPUT_DIR/manual.dynamic.docx" \
+    --spec "$SPEC_PATH"
+
+  echo "Done (dynamic PoC)."
+  echo "PoC source: $POC_SOURCE_DIR"
+  echo "PoC outputs: $POC_OUTPUT_DIR/manual.dynamic.pdf , $POC_OUTPUT_DIR/manual.dynamic.docx"
+  exit 0
+fi
+
+# static flow (legacy default)
 if [[ "$USE_LOCAL_SOURCES" == "1" && -f "$REPO_ROOT/main.tex" && -f "$REPO_ROOT/manual_word_v3.md" ]]; then
   cp "$REPO_ROOT/main.tex" "$SOURCE_DIR/main.tex"
   cp "$REPO_ROOT/manual_word_v3.md" "$SOURCE_DIR/manual_word_v3.md"
@@ -214,30 +285,27 @@ else
     --search-query "$SEARCH_QUERY"
 fi
 
-# 2) Capture screenshots from URL
 "$PY_BIN" "$SKILL_DIR/scripts/capture_manual_screens.py" \
   --url "$URL" \
   --outdir "$IMG_DIR" \
-  --search-query "$SEARCH_QUERY"
+  --search-query "$SEARCH_QUERY" \
+  --mode static \
+  --manifest-out "$SOURCE_DIR/capture_manifest.json"
 verify_required_screenshots
 
-# 3) Build PDF from LaTeX
 (
   cd "$SOURCE_DIR"
   latexmk -pdf -interaction=nonstopmode main.tex
 )
 cp "$SOURCE_DIR/main.pdf" "$OUTPUT_DIR/manual.pdf"
 
-# 4) Create base DOCX from markdown (keeps Word layout baseline)
 pandoc "$SOURCE_DIR/manual_word_v3.md" -o "$SOURCE_DIR/manual_styled_v3.docx" --toc --number-sections
 
-# 5) Sync LaTeX content -> DOCX without direct conversion
 "$PY_BIN" "$SKILL_DIR/scripts/sync_latex_to_docx.py" \
   --tex "$SOURCE_DIR/main.tex" \
   --docx "$SOURCE_DIR/manual_styled_v3.docx" \
   --out "$OUTPUT_DIR/manual.docx"
 
-# 6) Sync images into DOCX by LaTeX order
 "$PY_BIN" "$SKILL_DIR/scripts/sync_latex_images_to_docx.py" \
   --tex "$SOURCE_DIR/main.tex" \
   --docx "$OUTPUT_DIR/manual.docx"
