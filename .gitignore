@@ -9,6 +9,7 @@ skills/**/.runtime/
 # Manual pipeline outputs
 manual_jobs/
 skills/url-app-manual-pipeline/references/%OUTDIR%/
+skills/url-app-manual-pipeline/references/main.dynamic.template.pdf
 *.aux
 *.fdb_latexmk
 *.fls
