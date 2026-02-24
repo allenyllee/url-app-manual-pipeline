@@ -118,32 +118,12 @@ def render_md_body(spec: dict) -> str:
             btype = block.get("type")
             lines.append(f"MANUAL_BLOCK:{block_id}")
             lines.append("")
-
-            if btype == "paragraph":
-                lines.append(clean_md(block.get("text", "")))
-            elif btype == "bullet_list":
-                for item in block.get("items", []):
-                    lines.append(f"- {clean_md(item)}")
-            elif btype == "numbered_list":
-                for i, item in enumerate(block.get("items", []), start=1):
-                    lines.append(f"{i}. {clean_md(item)}")
-            elif btype == "table":
-                cols = block.get("columns", [])
-                rows = block.get("rows", [])
-                if not cols:
-                    cols = ["Column 1", "Column 2", "Column 3"]
-                lines.append("| " + " | ".join(clean_md(c) for c in cols) + " |")
-                lines.append("| " + " | ".join(["---"] * len(cols)) + " |")
-                for row in rows:
-                    padded = list(row) + [""] * (len(cols) - len(row))
-                    lines.append("| " + " | ".join(clean_md(c) for c in padded[: len(cols)]) + " |")
-            elif btype == "figure":
+            # Dynamic DOCX baseline is token-only; real content is injected by sync scripts.
+            # This avoids duplicate paragraphs/lists/tables/figures from pandoc pre-rendering.
+            if btype == "figure":
                 fig_id = block.get("figure_id", block_id)
                 lines.append(f"MANUAL_FIG:{fig_id}")
                 lines.append("")
-                caption = clean_md(block.get("caption", ""))
-                image_rel = block.get("image_rel", "")
-                lines.append(f"![{caption}]({image_rel})")
             lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
