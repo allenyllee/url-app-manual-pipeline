@@ -63,6 +63,8 @@ Optional:
   - `sync_latex_images_to_docx.py` for figure placement/captions
 - Keep intermediate source files in the separate `source/` folder.
 - Do not claim or auto-select `/mnt/DATA/test/.venv` as a reusable runtime.
+- After any local edits to this skill (`skills/url-app-manual-pipeline/**`), prompt user to sync:
+  `~/.codex/skills/url-app-manual-pipeline`.
 
 ## If User Reports Mismatch
 
