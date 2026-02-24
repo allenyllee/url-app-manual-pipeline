@@ -26,3 +26,5 @@ Thumbs.db
 # Temporary and archives
 *.tmp
 *.log
+
+main.tex
