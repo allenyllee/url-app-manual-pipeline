@@ -30,6 +30,7 @@ Default behavior automatically bootstraps Python runtime in
 - create venv
 - install `playwright` + `python-docx`
 - install Playwright Chromium
+- use this local runtime as first priority for all skill scripts
 
 Optional:
 - disable bootstrap: `MANUAL_BOOTSTRAP=0`
@@ -63,6 +64,9 @@ Optional:
   - `sync_latex_images_to_docx.py` for figure placement/captions
 - Keep intermediate source files in the separate `source/` folder.
 - Do not claim or auto-select `/mnt/DATA/test/.venv` as a reusable runtime.
+- If the run requires `python -m playwright install chromium`, start with sandbox escalation instead of attempting a sandbox-only run first.
+- If runtime deps are missing and sandbox blocks install/download, immediately rerun with sandbox escalation to install deps in `skills/url-app-manual-pipeline/.runtime/.venv`.
+- Do not detour to reusable assets or placeholder-image delivery as fallback for failed runtime setup.
 - After any local edits to this skill (`skills/url-app-manual-pipeline/**`), prompt user to sync:
   `~/.codex/skills/url-app-manual-pipeline`.
 

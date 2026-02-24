@@ -131,11 +131,59 @@ bootstrap_python_env() {
     mkdir -p "$(dirname "$VENV_DIR")"
     python3 -m venv "$VENV_DIR"
   fi
-  "$PY_BIN" -m pip install --upgrade pip >/dev/null
+  # Avoid unconditional network access on every run.
+  # Only touch pip when runtime deps are actually missing.
   if ! "$PY_BIN" -c "import playwright, docx" >/dev/null 2>&1; then
-    "$PY_BIN" -m pip install playwright python-docx
+    if ! "$PY_BIN" -m pip install --upgrade pip; then
+      echo "Failed to bootstrap Python runtime: cannot upgrade pip." >&2
+      echo "Check network/PyPI access, or use MANUAL_BOOTSTRAP=0 with a prebuilt MANUAL_VENV_DIR." >&2
+      exit 1
+    fi
+    if ! "$PY_BIN" -m pip install playwright python-docx; then
+      echo "Failed to install Python deps: playwright, python-docx." >&2
+      echo "Pipeline aborted. Fix dependency install, then rerun." >&2
+      exit 1
+    fi
   fi
-  "$PY_BIN" -m playwright install chromium
+  if ! "$PY_BIN" -m playwright install chromium; then
+    echo "Failed to install Playwright Chromium browser." >&2
+    echo "Pipeline aborted. Ensure browser download is reachable, then rerun." >&2
+    exit 1
+  fi
+}
+
+require_python_runtime_deps() {
+  if ! "$PY_BIN" -c "import playwright, docx" >/dev/null 2>&1; then
+    echo "Missing Python deps in runtime: playwright, python-docx." >&2
+    echo "Pipeline aborted. Run with MANUAL_BOOTSTRAP=1, or install deps into $VENV_DIR." >&2
+    exit 1
+  fi
+}
+
+verify_required_screenshots() {
+  local required=(
+    "home-overview.png"
+    "top-nav.png"
+    "left-nav.png"
+    "video-card.png"
+    "flow-search-step1.png"
+    "flow-search-step2.png"
+    "flow-open-video-step1.png"
+    "flow-open-video-step2.png"
+  )
+  local f
+  local missing=()
+  for f in "${required[@]}"; do
+    if [[ ! -s "$IMG_DIR/$f" ]]; then
+      missing+=("$f")
+    fi
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "Missing required screenshots: ${missing[*]}" >&2
+    echo "Pipeline aborted to avoid LaTeX placeholder images." >&2
+    echo "Fix runtime/browser capture issues, then rerun." >&2
+    exit 1
+  fi
 }
 
 require_or_install_system_cmds pandoc latexmk
@@ -149,6 +197,8 @@ else
     exit 1
   fi
 fi
+
+require_python_runtime_deps
 
 # 1) Create source files for version control
 if [[ "$USE_LOCAL_SOURCES" == "1" && -f "$REPO_ROOT/main.tex" && -f "$REPO_ROOT/manual_word_v3.md" ]]; then
@@ -169,6 +219,7 @@ fi
   --url "$URL" \
   --outdir "$IMG_DIR" \
   --search-query "$SEARCH_QUERY"
+verify_required_screenshots
 
 # 3) Build PDF from LaTeX
 (

@@ -167,6 +167,7 @@ def main() -> int:
     args = parse_args()
     out = args.out or args.docx
     shots = parse_latex_shots(args.tex)
+
     doc = Document(str(args.docx))
 
     captions = {s.caption for s in shots} | {f"Figure {s.number}. {s.caption}" for s in shots}

@@ -59,6 +59,23 @@ def screenshot_safe(target: Any, path: Path, full_page: bool = False, fallback_p
             fallback_page.screenshot(path=str(path))
 
 
+def first_visible_locator(page, selectors: list[str], max_each: int = 10):
+    for sel in selectors:
+        loc = page.locator(sel)
+        try:
+            count = min(loc.count(), max_each)
+        except Exception:
+            continue
+        for i in range(count):
+            candidate = loc.nth(i)
+            try:
+                if candidate.is_visible(timeout=800):
+                    return candidate
+            except Exception:
+                continue
+    return None
+
+
 def first_detail_url(page, base_url: str) -> str | None:
     base = urlparse(base_url)
     anchors = page.locator("main a[href], article a[href], a[href]")
@@ -98,34 +115,68 @@ def main() -> int:
         screenshot_safe(page, outdir / "home-overview.png", full_page=True)
 
         # 2) Top nav/banner
-        top_nav = page.locator("header, [role='banner'], nav").first
-        if top_nav.count() > 0:
+        top_nav = first_visible_locator(page, ["header", "[role='banner']", "nav"])
+        if top_nav is not None:
             screenshot_safe(top_nav, outdir / "top-nav.png", fallback_page=page)
         else:
             screenshot_safe(page, outdir / "top-nav.png")
 
         # 3) Left nav/side panel
-        side_nav = page.locator("aside nav, aside, nav[aria-label*='navigation' i], [role='navigation']").first
-        if side_nav.count() > 0:
+        side_nav = first_visible_locator(
+            page,
+            [
+                "aside nav",
+                "aside",
+                "ytd-mini-guide-renderer",
+                "ytd-guide-renderer",
+                "nav[aria-label*='navigation' i]",
+                "[role='navigation']",
+            ],
+        )
+        if side_nav is not None:
             screenshot_safe(side_nav, outdir / "left-nav.png", fallback_page=page)
         else:
             screenshot_safe(page, outdir / "left-nav.png")
 
         # 4) Representative content card
-        card = page.locator("article, [data-testid*='card' i], [class*='card' i], main a[href]").first
-        if card.count() > 0:
-            card.scroll_into_view_if_needed(timeout=3000)
-            page.wait_for_timeout(500)
-            screenshot_safe(card, outdir / "video-card.png", fallback_page=page)
-        else:
+        card = first_visible_locator(
+            page,
+            [
+                "ytd-rich-item-renderer",
+                "ytd-video-renderer",
+                "a#thumbnail",
+                "article",
+                "[data-testid*='card' i]",
+                "[class*='card' i]",
+                "main a[href]",
+            ],
+        )
+        if card is None:
             screenshot_safe(page, outdir / "video-card.png")
+        else:
+            try:
+                card.scroll_into_view_if_needed(timeout=5000)
+                page.wait_for_timeout(500)
+            except Exception:
+                pass
+            screenshot_safe(card, outdir / "video-card.png", fallback_page=page)
 
         # 5) Flow A step 1 - typed query in search input
-        search_input = page.locator(
-            "input[type='search'], input[name*='search' i], input[placeholder*='search' i], "
-            "form[role='search'] input, input[type='text']"
-        ).first
+        search_input = first_visible_locator(
+            page,
+            [
+                "input#search",
+                "input[name='search_query']",
+                "input[type='search']",
+                "input[name*='search' i]",
+                "input[placeholder*='search' i]",
+                "form[role='search'] input",
+                "input[type='text']",
+            ],
+        )
         try:
+            if search_input is None:
+                raise RuntimeError("search input not found")
             search_input.click(timeout=3000)
             search_input.fill(args.search_query)
             page.wait_for_timeout(500)
