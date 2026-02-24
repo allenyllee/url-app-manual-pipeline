@@ -879,6 +879,14 @@ def insert_paragraph_after_docx(paragraph: Paragraph, text: str | None = None, s
     return p
 
 
+def style_exists_docx(doc: Document, style_name: str) -> bool:
+    try:
+        _ = doc.styles[style_name]
+        return True
+    except Exception:
+        return False
+
+
 def sync_dynamic_from_spec(args: argparse.Namespace) -> int:
     if args.spec is None:
         return 1
@@ -928,17 +936,31 @@ def sync_dynamic_from_spec(args: argparse.Namespace) -> int:
                 p.text = ""
                 changes += 1
                 continue
-            p.text = items[0]
-            try:
-                p.style = "List Bullet" if btype == "bullet_list" else "List Number"
-            except Exception:
-                pass
+
+            desired_style = "List Bullet" if btype == "bullet_list" else "List Number"
+            use_word_list_style = style_exists_docx(doc, desired_style)
+
+            def format_item_text(item_text: str, idx: int) -> str:
+                if use_word_list_style:
+                    return item_text
+                if btype == "bullet_list":
+                    return f"\u2022 {item_text}"
+                return f"{idx}. {item_text}"
+
+            p.text = format_item_text(items[0], 1)
+            if use_word_list_style:
+                try:
+                    p.style = desired_style
+                except Exception:
+                    use_word_list_style = False
+                    p.text = format_item_text(items[0], 1)
+
             tail = p
-            for item in items[1:]:
+            for idx, item in enumerate(items[1:], start=2):
                 tail = insert_paragraph_after_docx(
                     tail,
-                    item,
-                    "List Bullet" if btype == "bullet_list" else "List Number",
+                    format_item_text(item, idx),
+                    desired_style if use_word_list_style else None,
                 )
                 changes += 1
             changes += 1
