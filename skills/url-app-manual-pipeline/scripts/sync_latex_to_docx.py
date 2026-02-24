@@ -895,7 +895,7 @@ def ensure_num_id_for_format(doc: Document, num_fmt: str, restart: bool = False)
     abstract_nums = list(numbering.findall(qn("w:abstractNum")))
     nums = list(numbering.findall(qn("w:num")))
 
-    abstract_by_id: dict[str, str] = {}
+    abstract_meta: dict[str, dict[str, str]] = {}
     for absn in abstract_nums:
         aid = absn.get(qn("w:abstractNumId"), "")
         lvl0 = None
@@ -905,14 +905,24 @@ def ensure_num_id_for_format(doc: Document, num_fmt: str, restart: bool = False)
                 break
         if aid and lvl0 is not None:
             fmt = lvl0.find(qn("w:numFmt"))
+            lvl_text = lvl0.find(qn("w:lvlText"))
             if fmt is not None:
-                abstract_by_id[aid] = fmt.get(qn("w:val"), "")
+                abstract_meta[aid] = {
+                    "fmt": fmt.get(qn("w:val"), ""),
+                    "lvl_text": (lvl_text.get(qn("w:val"), "") if lvl_text is not None else ""),
+                }
 
     target_abs_id = ""
-    for aid, fmt in abstract_by_id.items():
-        if fmt == num_fmt:
-            target_abs_id = aid
-            break
+    for aid, meta in abstract_meta.items():
+        if meta.get("fmt") != num_fmt:
+            continue
+        if num_fmt == "bullet":
+            # Some generators produce blank bullet glyph definitions (invisible markers).
+            # Only reuse bullet definitions with a visible lvlText.
+            if not meta.get("lvl_text", "").strip():
+                continue
+        target_abs_id = aid
+        break
 
     if not target_abs_id:
         new_abs_id = str(max_attr_int(abstract_nums, "w:abstractNumId", 1999) + 1)
@@ -934,6 +944,13 @@ def ensure_num_id_for_format(doc: Document, num_fmt: str, restart: bool = False)
         lvl_text = OxmlElement("w:lvlText")
         lvl_text.set(qn("w:val"), "%1." if num_fmt == "decimal" else "•")
         lvl.append(lvl_text)
+        if num_fmt == "bullet":
+            rpr = OxmlElement("w:rPr")
+            rfonts = OxmlElement("w:rFonts")
+            rfonts.set(qn("w:ascii"), "Symbol")
+            rfonts.set(qn("w:hAnsi"), "Symbol")
+            rpr.append(rfonts)
+            lvl.append(rpr)
         lvl_jc = OxmlElement("w:lvlJc")
         lvl_jc.set(qn("w:val"), "left")
         lvl.append(lvl_jc)
