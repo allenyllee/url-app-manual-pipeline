@@ -28,10 +28,12 @@ from typing import Any
 try:
     from docx import Document
     from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
     from docx.text.paragraph import Paragraph
 except Exception:  # pragma: no cover - optional dependency for dynamic mode
     Document = None
     OxmlElement = None
+    qn = None
     Paragraph = Any
 
 NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -879,18 +881,120 @@ def insert_paragraph_after_docx(paragraph: Paragraph, text: str | None = None, s
     return p
 
 
-def style_exists_docx(doc: Document, style_name: str) -> bool:
-    try:
-        _ = doc.styles[style_name]
-        return True
-    except Exception:
-        return False
+def max_attr_int(elements: list[Any], attr_name: str, default: int) -> int:
+    vals: list[int] = []
+    for el in elements:
+        v = el.get(qn(attr_name), "")
+        if v.isdigit():
+            vals.append(int(v))
+    return max(vals) if vals else default
+
+
+def ensure_num_id_for_format(doc: Document, num_fmt: str, restart: bool = False) -> str:
+    numbering = doc.part.numbering_part.element
+    abstract_nums = list(numbering.findall(qn("w:abstractNum")))
+    nums = list(numbering.findall(qn("w:num")))
+
+    abstract_by_id: dict[str, str] = {}
+    for absn in abstract_nums:
+        aid = absn.get(qn("w:abstractNumId"), "")
+        lvl0 = None
+        for lvl in absn.findall(qn("w:lvl")):
+            if lvl.get(qn("w:ilvl"), "") == "0":
+                lvl0 = lvl
+                break
+        if aid and lvl0 is not None:
+            fmt = lvl0.find(qn("w:numFmt"))
+            if fmt is not None:
+                abstract_by_id[aid] = fmt.get(qn("w:val"), "")
+
+    target_abs_id = ""
+    for aid, fmt in abstract_by_id.items():
+        if fmt == num_fmt:
+            target_abs_id = aid
+            break
+
+    if not target_abs_id:
+        new_abs_id = str(max_attr_int(abstract_nums, "w:abstractNumId", 1999) + 1)
+        absn = OxmlElement("w:abstractNum")
+        absn.set(qn("w:abstractNumId"), new_abs_id)
+
+        mlt = OxmlElement("w:multiLevelType")
+        mlt.set(qn("w:val"), "singleLevel")
+        absn.append(mlt)
+
+        lvl = OxmlElement("w:lvl")
+        lvl.set(qn("w:ilvl"), "0")
+        start = OxmlElement("w:start")
+        start.set(qn("w:val"), "1")
+        lvl.append(start)
+        fmt = OxmlElement("w:numFmt")
+        fmt.set(qn("w:val"), num_fmt)
+        lvl.append(fmt)
+        lvl_text = OxmlElement("w:lvlText")
+        lvl_text.set(qn("w:val"), "%1." if num_fmt == "decimal" else "•")
+        lvl.append(lvl_text)
+        lvl_jc = OxmlElement("w:lvlJc")
+        lvl_jc.set(qn("w:val"), "left")
+        lvl.append(lvl_jc)
+
+        ppr = OxmlElement("w:pPr")
+        ind = OxmlElement("w:ind")
+        ind.set(qn("w:left"), "720")
+        ind.set(qn("w:hanging"), "360")
+        ppr.append(ind)
+        lvl.append(ppr)
+        absn.append(lvl)
+        numbering.append(absn)
+        target_abs_id = new_abs_id
+        nums = list(numbering.findall(qn("w:num")))
+
+    if not restart:
+        for num in nums:
+            nid = num.get(qn("w:numId"), "")
+            absid = num.find(qn("w:abstractNumId"))
+            if nid and absid is not None and absid.get(qn("w:val"), "") == target_abs_id:
+                return nid
+
+    new_num_id = str(max_attr_int(nums, "w:numId", 999) + 1)
+    num = OxmlElement("w:num")
+    num.set(qn("w:numId"), new_num_id)
+    absid = OxmlElement("w:abstractNumId")
+    absid.set(qn("w:val"), target_abs_id)
+    num.append(absid)
+
+    if restart and num_fmt == "decimal":
+        lvl_ovr = OxmlElement("w:lvlOverride")
+        lvl_ovr.set(qn("w:ilvl"), "0")
+        start_ovr = OxmlElement("w:startOverride")
+        start_ovr.set(qn("w:val"), "1")
+        lvl_ovr.append(start_ovr)
+        num.append(lvl_ovr)
+
+    numbering.append(num)
+    return new_num_id
+
+
+def set_paragraph_numpr(paragraph: Paragraph, num_id: str) -> None:
+    ppr = paragraph._p.get_or_add_pPr()
+    for child in list(ppr):
+        if child.tag == qn("w:numPr"):
+            ppr.remove(child)
+
+    numpr = OxmlElement("w:numPr")
+    ilvl = OxmlElement("w:ilvl")
+    ilvl.set(qn("w:val"), "0")
+    numid = OxmlElement("w:numId")
+    numid.set(qn("w:val"), str(num_id))
+    numpr.append(ilvl)
+    numpr.append(numid)
+    ppr.append(numpr)
 
 
 def sync_dynamic_from_spec(args: argparse.Namespace) -> int:
     if args.spec is None:
         return 1
-    if Document is None or OxmlElement is None:
+    if Document is None or OxmlElement is None or qn is None:
         raise SystemExit("python-docx is required for --spec dynamic sync mode")
 
     spec = json.loads(args.spec.read_text(encoding="utf-8"))
@@ -905,6 +1009,7 @@ def sync_dynamic_from_spec(args: argparse.Namespace) -> int:
     fig_token_re = re.compile(r"(?:\[\[)?MANUAL_FIG:([A-Za-z0-9_.:-]+)(?:\]\])?")
 
     doc = Document(str(args.docx))
+    bullet_num_id = ensure_num_id_for_format(doc, "bullet", restart=False)
     changes = 0
     skipped = 0
 
@@ -936,32 +1041,21 @@ def sync_dynamic_from_spec(args: argparse.Namespace) -> int:
                 p.text = ""
                 changes += 1
                 continue
+            num_id = bullet_num_id
+            if btype == "numbered_list":
+                # New numId per ordered block to force restart at 1.
+                num_id = ensure_num_id_for_format(doc, "decimal", restart=True)
 
-            desired_style = "List Bullet" if btype == "bullet_list" else "List Number"
-            use_word_list_style = style_exists_docx(doc, desired_style)
-
-            def format_item_text(item_text: str, idx: int) -> str:
-                if use_word_list_style:
-                    return item_text
-                if btype == "bullet_list":
-                    return f"\u2022 {item_text}"
-                return f"{idx}. {item_text}"
-
-            p.text = format_item_text(items[0], 1)
-            if use_word_list_style:
-                try:
-                    p.style = desired_style
-                except Exception:
-                    use_word_list_style = False
-                    p.text = format_item_text(items[0], 1)
+            p.text = items[0]
+            set_paragraph_numpr(p, num_id)
 
             tail = p
-            for idx, item in enumerate(items[1:], start=2):
+            for item in items[1:]:
                 tail = insert_paragraph_after_docx(
                     tail,
-                    format_item_text(item, idx),
-                    desired_style if use_word_list_style else None,
+                    item,
                 )
+                set_paragraph_numpr(tail, num_id)
                 changes += 1
             changes += 1
             continue
